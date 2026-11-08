@@ -26,8 +26,19 @@ Open http://localhost:3000
 
 On Windows PowerShell, use `Copy-Item .env.example .env`.
 
-## Deployment
-Deploy on a Node.js host that supports persistent storage and WebSockets. Set `JWT_SECRET`, expose the assigned `PORT`, and use HTTPS. Keep the SQLite database on persistent storage; ephemeral serverless storage is not suitable for this setup.
+## Deploy a free test server on Render
+This repository includes a `render.yaml` Blueprint for a single free Node.js web service.
+
+1. Sign in at https://render.com/ and connect the GitHub account that can access this repository.
+2. In the Render Dashboard, choose **New → Blueprint**.
+3. Select `mccoy2987/Bisdak-MU-pinas` and the `main` branch.
+4. Render reads `render.yaml`. Review the service named `bisdak-mu-pinas` and choose **Apply**.
+5. Wait for the first deploy to finish. Open the `onrender.com` URL shown on the service page.
+6. Check `/api/health`; it should return JSON with `"ok":true`.
+
+The Blueprint generates a private `JWT_SECRET` in Render and uses `/tmp/bisdakmu.db` for the prototype database. Do not add real secrets to GitHub.
+
+**Free-tier warning:** Render free web services spin down after 15 minutes without inbound traffic and can take about a minute to wake up. Their filesystem is ephemeral: the SQLite database can be erased when the service restarts, sleeps, or redeploys. This free setup is for demos and testing only; do not collect valuable player accounts or progress. For persistent accounts, migrate SQLite to a managed PostgreSQL database and review the database provider's free-tier retention/expiry limits, or use paid persistent storage.
 
 ## Prototype limitations
 This is a starter foundation, not a complete MMORPG. It does not yet include authoritative combat, monster AI, drops, inventory/equipment, skills, quests, parties, guilds, trading, maps/portals, anti-cheat, admin tools, or production-grade scaling. The multiplayer demo broadcasts player movement, but remote player avatars are not yet rendered.
