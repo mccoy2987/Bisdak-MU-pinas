@@ -1,0 +1,24 @@
+require("dotenv").config();
+const express=require("express"), http=require("http"), cors=require("cors"), bcrypt=require("bcryptjs"), jwt=require("jsonwebtoken"), Database=require("better-sqlite3");
+const {Server}=require("socket.io");
+const path=require("path");
+const app=express(), server=http.createServer(app), io=new Server(server,{cors:{origin:"*"}});
+const db=new Database(process.env.DB_FILE||"bisdakmu.db");
+const SECRET=process.env.JWT_SECRET||"dev-only-change-this-secret";
+app.use(cors()); app.use(express.json({limit:"32kb"})); app.use(express.static(path.join(__dirname,"public")));
+db.exec(`
+CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE NOT NULL, email TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL, created_at TEXT DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS characters(id INTEGER PRIMARY KEY AUTOINCREMENT,user_id INTEGER NOT NULL,name TEXT UNIQUE NOT NULL,class TEXT NOT NULL,level INTEGER DEFAULT 1,x REAL DEFAULT 0,z REAL DEFAULT 0,created_at TEXT DEFAULT CURRENT_TIMESTAMP,FOREIGN KEY(user_id) REFERENCES users(id));
+`);
+const classes=["Dark Knight","Dark Wizard","Fairy Elf","Magic Gladiator","Dark Lord","Summoner","Rage Fighter","Grow Lancer","Rune Wizard","Slayer"];
+const sign=u=>jwt.sign({id:u.id,username:u.username},SECRET,{expiresIn:"7d"});
+function auth(req,res,next){try{const h=req.headers.authorization||"";req.user=jwt.verify(h.replace(/^Bearer /,""),SECRET);next();}catch{return res.status(401).json({error:"Please sign in again."});}}
+app.get("/api/health",(req,res)=>res.json({ok:true,game:"Bisdak MU Pinas"}));
+app.get("/api/classes",(req,res)=>res.json({classes}));
+app.post("/api/register",(req,res)=>{const {username,email,password}=req.body||{};if(!/^[A-Za-z0-9_]{3,16}$/.test(username||""))return res.status(400).json({error:"Username must be 3–16 letters, numbers or underscores."});if(!/^\S+@\S+\.\S+$/.test(email||""))return res.status(400).json({error:"Enter a valid email."});if(typeof password!=="string"||password.length<8)return res.status(400).json({error:"Password must be at least 8 characters."});try{const info=db.prepare("INSERT INTO users(username,email,password_hash) VALUES(?,?,?)").run(username,email.toLowerCase(),bcrypt.hashSync(password,12));const user={id:Number(info.lastInsertRowid),username};res.status(201).json({token:sign(user),user});}catch(e){res.status(409).json({error:"Username or email is already registered."});}});
+app.post("/api/login",(req,res)=>{const {login,password}=req.body||{};const u=db.prepare("SELECT * FROM users WHERE username=? OR email=?").get(login, (login||"").toLowerCase());if(!u||!bcrypt.compareSync(password||"",u.password_hash))return res.status(401).json({error:"Incorrect login or password."});res.json({token:sign(u),user:{id:u.id,username:u.username}});});
+app.get("/api/me",auth,(req,res)=>{const user=db.prepare("SELECT id,username,email FROM users WHERE id=?").get(req.user.id);const characters=db.prepare("SELECT id,name,class,level FROM characters WHERE user_id=?").all(req.user.id);res.json({user,characters});});
+app.post("/api/characters",auth,(req,res)=>{const {name,characterClass}=req.body||{};if(!/^[A-Za-z0-9_]{3,12}$/.test(name||""))return res.status(400).json({error:"Character name must be 3–12 letters, numbers or underscores."});if(!classes.includes(characterClass))return res.status(400).json({error:"Choose a valid class."});if(db.prepare("SELECT count(*) n FROM characters WHERE user_id=?").get(req.user.id).n>=5)return res.status(400).json({error:"Maximum 5 characters per account."});try{const info=db.prepare("INSERT INTO characters(user_id,name,class) VALUES(?,?,?)").run(req.user.id,name,characterClass);res.status(201).json({character:{id:Number(info.lastInsertRowid),name,class:characterClass,level:1}});}catch{return res.status(409).json({error:"That character name is already taken."});}});
+const online=new Map();
+io.on("connection",socket=>{socket.on("player:join",token=>{try{const p=jwt.verify(token,SECRET);socket.data.player=p;online.set(socket.id,{username:p.username,x:0,z:0});socket.emit("world:players",Array.from(online.values()));socket.broadcast.emit("world:entered",{username:p.username});}catch{socket.emit("auth:error","Sign in to enter the world.");}});socket.on("player:move",pos=>{if(!socket.data.player||!pos||!Number.isFinite(pos.x)||!Number.isFinite(pos.z))return;const p=online.get(socket.id);if(!p)return;p.x=Math.max(-90,Math.min(90,pos.x));p.z=Math.max(-90,Math.min(90,pos.z));socket.broadcast.emit("world:moved",p);});socket.on("disconnect",()=>{const p=online.get(socket.id);if(p)socket.broadcast.emit("world:left",p.username);online.delete(socket.id);});});
+const port=process.env.PORT||3000;server.listen(port,()=>console.log("Bisdak MU Pinas running on http://localhost:"+port));
