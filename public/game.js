@@ -31,14 +31,74 @@ for(let i=0;i<15;i++){box(scene,M.stone,0,-.005,-18-i*2,5,.06,1.7)}
 for(let i=0;i<18;i++){const a=i*Math.PI*2/18,r=57;const h=10+Math.random()*9;const hill=mesh(new THREE.ConeGeometry(13,h,7),mat(i%2?0x526a48:0x66734c),scene,Math.cos(a)*r,h/2-1,Math.sin(a)*r);hill.scale.z=.75}
 }
 // Original low-poly MU-classic-inspired knight; no ripped game files.
-function makeKnight(){const g=new THREE.Group(),armor=M.steel,trim=M.gold;const torso=box(g,armor,0,1.35,0,.82,.82,.46);box(g,M.steelDark,0,1.77,0,.48,.22,.4);box(g,trim,0,1.42,.245,.42,.09,.035);
-const head=cylinder(g,M.skin,0,2.05,0,.23,.25,.38,8);const helm=mesh(new THREE.SphereGeometry(.32,8,6,0,Math.PI*2,0,Math.PI*.58),armor,g,0,2.23,0);box(g,M.steelDark,0,2.08,.29,.12,.28,.06);const crest=mesh(new THREE.ConeGeometry(.09,.42,5),M.cape,g,0,2.61,-.02);crest.rotation.z=-.12;
-const shoulderL=mesh(new THREE.SphereGeometry(.29,8,6),armor,g,-.58,1.68,0);const shoulderR=mesh(new THREE.SphereGeometry(.29,8,6),armor,g,.58,1.68,0);for(const x of [-.58,.58]){box(g,armor,x,1.27,0,.22,.58,.25);cylinder(g,M.leather,x,.93,0,.13,.15,.18,8)}
-const legL=box(g,M.steelDark,-.23,.53,0,.27,.65,.32),legR=box(g,M.steelDark,.23,.53,0,.27,.65,.32);box(g,M.leather,-.23,.18,.08,.34,.22,.48);box(g,M.leather,.23,.18,.08,.34,.22,.48);
-const cape=mesh(new THREE.BoxGeometry(.82,1.15,.07),M.cape,g,0,1.24,-.34);cape.rotation.x=-.12;
-const sword=new THREE.Group();g.add(sword);box(sword,M.leather,.72,1.13,0,.16,.28,.18);box(sword,trim,.72,1.3,0,.5,.08,.12);const blade=mesh(new THREE.BoxGeometry(.13,.98,.07),M.steel,sword,.72,1.82,0);const tip=mesh(new THREE.ConeGeometry(.092,.25,4),M.steel,sword,.72,2.42,0);tip.rotation.z=Math.PI;
-const shield=mesh(new THREE.CylinderGeometry(.43,.43,.12,6),M.steelDark,g,-.76,1.25,.08);shield.rotation.z=Math.PI/2;const crestShield=mesh(new THREE.ConeGeometry(.16,.3,4),trim,g,-.84,1.25,.17);crestShield.rotation.z=-Math.PI/2;
-g.userData={legs:[legL,legR],arms:[shoulderL,shoulderR],cape,sword,torso};return g}
+function makeKnight(){
+  const g=new THREE.Group(), armor=M.steel, dark=M.steelDark, trim=M.gold, skin=M.skin;
+  const ell=(p,m,x,y,z,sx,sy,sz)=>{const o=mesh(new THREE.SphereGeometry(1,12,10),m,p,x,y,z);o.scale.set(sx,sy,sz);return o};
+  const plate=(p,m,x,y,z,sx,sy,sz)=>ell(p,m,x,y,z,sx,sy,sz);
+  // Broad shoulders, powerful chest and tapered waist, following the supplied character reference.
+  ell(g,M.leather,0,1.23,0,.43,.43,.27); // waist under the armor
+  ell(g,skin,0,1.57,0,.53,.42,.30);     // muscular chest base
+  ell(g,skin,-.25,1.58,.015,.30,.32,.28);
+  ell(g,skin,.25,1.58,.015,.30,.32,.28);
+  ell(g,skin,0,1.19,.015,.34,.29,.23);
+  // segmented abdominal silhouette beneath breastplate
+  for(let i=0;i<3;i++)for(const x of [-.13,.13])ell(g,skin,x,1.34-i*.105,.225,.115,.065,.045);
+  // dark steel breastplate, raised center ridge and gold edging
+  plate(g,armor,0,1.57,.245,.48,.34,.105);
+  plate(g,dark,0,1.52,.34,.075,.30,.035);
+  for(const x of [-.25,.25])plate(g,trim,x,1.55,.315,.035,.25,.025);
+  box(g,trim,0,1.22,.245,.40,.075,.06);
+  // Neck and closed great helm
+  cylinder(g,skin,0,1.98,0,.16,.18,.22,8);
+  const helm=mesh(new THREE.SphereGeometry(.31,10,8),armor,g,0,2.20,0);helm.scale.set(1,.95,.92);
+  const face=box(g,dark,0,2.13,.275,.20,.25,.055);
+  box(g,trim,0,2.23,.315,.24,.045,.025);
+  const visor=box(g,M.leather,0,2.12,.31,.19,.035,.035);
+  const crest=mesh(new THREE.ConeGeometry(.12,.42,5),M.cape,g,0,2.57,-.015);crest.rotation.z=-.08;
+  // Shoulder pivots and articulated arms, broad like the reference physique
+  const armL=new THREE.Group(),armR=new THREE.Group();g.add(armL,armR);armL.position.set(-.52,1.76,0);armR.position.set(.52,1.76,0);
+  for(const [arm,sign] of [[armL,-1],[armR,1]]){
+    ell(arm,skin,sign*.12,-.13,0,.19,.25,.19);
+    plate(arm,armor,sign*.02,-.015,0,.27,.20,.24);
+    plate(arm,trim,sign*.02,-.12,.19,.19,.035,.035);
+    const upper=ell(arm,dark,sign*.12,-.38,0,.14,.25,.14);
+    const fore=ell(arm,armor,sign*.13,-.67,.015,.16,.22,.16);
+    plate(arm,trim,sign*.13,-.66,.14,.12,.045,.035);
+    ell(arm,skin,sign*.13,-.88,.03,.13,.13,.12);
+    // small articulated fingers
+    for(let f=0;f<3;f++)box(arm,dark,sign*(.07+f*.055),-.99,.06,.035,.12,.045);
+  }
+  // waist belt and armored fauld
+  cylinder(g,dark,0,1.04,0,.34,.38,.18,10);
+  box(g,trim,0,1.04,.29,.17,.15,.045);
+  for(const x of [-.22,0,.22]){const t=mesh(new THREE.BoxGeometry(.22,.48,.10),armor,g,x,.78,.18);t.rotation.z=x*.28;box(g,dark,x,.56,.19,.19,.055,.12)}
+  // articulated thighs, greaves and plated boots
+  const legL=new THREE.Group(),legR=new THREE.Group();g.add(legL,legR);legL.position.set(-.21,.88,0);legR.position.set(.21,.88,0);
+  for(const [leg,sign] of [[legL,-1],[legR,1]]){
+    ell(leg,M.leather,0,-.13,0,.17,.25,.17);
+    ell(leg,dark,0,-.35,0,.145,.23,.15);
+    plate(leg,armor,0,-.40,.035,.16,.20,.16);
+    plate(leg,trim,0,-.43,.17,.11,.035,.025);
+    ell(leg,dark,0,-.67,0,.12,.20,.13);
+    plate(leg,armor,0,-.69,.025,.14,.19,.14);
+    box(leg,dark,0,-.87,.08,.27,.17,.38);
+    box(leg,trim,0,-.81,.26,.20,.045,.035);
+  }
+  // heavy crimson back cape
+  const cape=mesh(new THREE.BoxGeometry(.78,1.12,.075),M.cape,g,0,1.18,-.30);cape.rotation.x=-.13;
+  // sword held in right hand
+  const sword=new THREE.Group();g.add(sword);sword.position.set(.78,.93,.05);sword.rotation.z=-.12;
+  cylinder(sword,M.leather,0,0,0,.075,.075,.27,8);
+  box(sword,trim,0,.16,0,.40,.075,.10);
+  const blade=mesh(new THREE.BoxGeometry(.13,.92,.065),armor,sword,0,.66,0);
+  const tip=mesh(new THREE.ConeGeometry(.092,.22,4),armor,sword,0,1.23,0);tip.rotation.z=Math.PI;
+  // kite shield on left forearm
+  const shield=mesh(new THREE.CylinderGeometry(.34,.42,.12,6),dark,g,-.78,1.20,.16);shield.rotation.z=Math.PI/2;
+  plate(g,armor,-.86,1.20,.23,.24,.32,.055);
+  const shieldBoss=mesh(new THREE.OctahedronGeometry(.13),trim,g,-.86,1.20,.30);
+  g.userData={legs:[legL,legR],arms:[armL,armR],cape,sword,torso:g};
+  return g;
+}
 document.querySelectorAll("[data-tab]").forEach(b=>b.onclick=()=>{document.querySelectorAll("[data-tab]").forEach(x=>x.classList.toggle("active",x===b));$(".auth:not(.hidden)")?.classList.add("hidden");$("#"+b.dataset.tab).classList.remove("hidden");msg("");});
 async function api(url,body){const r=await fetch(url,{method:body?"POST":"GET",headers:{"Content-Type":"application/json",...(token?{Authorization:"Bearer "+token}:{})},body:body?JSON.stringify(body):undefined});const d=await r.json();if(!r.ok)throw Error(d.error||"Request failed");return d;}
 $("#login").onsubmit=async e=>{e.preventDefault();try{const f=new FormData(e.target),d=await api("/api/login",{login:f.get("login"),password:f.get("password")});loginDone(d);}catch(x){msg(x.message);}};
